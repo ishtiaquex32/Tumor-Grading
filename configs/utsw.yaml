@@ -1,0 +1,49 @@
+# ==========================================================
+# UTSW Dataset Configuration
+# ==========================================================
+
+dataset_name: UTSW
+
+metadata_tsv: data/UTSW_Glioma_Metadata.tsv
+
+image_dir: data/UTSW-Glioma/
+
+preprocessed_dir: data/preprocessed_96_2/
+
+tda:
+  train: data/features/X_train_fs2.npy
+  val: data/features/X_val_fs2.npy
+  test: data/features/X_test_fs2.npy
+
+radiomics:
+  train: data/features/X_train_radiomics2.npy
+  val: data/features/X_val_radiomics2.npy
+  test: data/features/X_test_radiomics2.npy
+
+label_column: Tumor Grade
+
+positive_label: 4
+
+valid_grades:
+  - 2
+  - 3
+  - 4
+
+input_channels: 4
+
+image_size:
+  - 96
+  - 96
+  - 96
+
+modalities:
+  - T1
+  - T1CE
+  - T2
+  - FLAIR
+
+train_ratio: 0.70
+val_ratio: 0.10
+test_ratio: 0.20
+
+random_state: 42

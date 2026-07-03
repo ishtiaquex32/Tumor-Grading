@@ -1,0 +1,54 @@
+# ==========================================================
+# UCSF Dataset Configuration
+# ==========================================================
+
+dataset_name: UCSF
+
+# Metadata
+metadata_csv: data/UCSF-PDGM-metadata_v5.csv
+
+# MRI directory
+image_dir: data/UCSF-PDGM-v5/
+
+# Preprocessed numpy tensors
+preprocessed_dir: data/preprocessed_g_96_501/
+
+# Feature files
+tda:
+  train: data/features/X_train_fs.npy
+  val: data/features/X_val_fs.npy
+  test: data/features/X_test_fs.npy
+
+radiomics:
+  train: data/features/X_train_radiomics.npy
+  val: data/features/X_val_radiomics.npy
+  test: data/features/X_test_radiomics.npy
+
+# Label information
+label_column: WHO CNS Grade
+
+positive_label: 4
+
+valid_grades:
+  - 2
+  - 3
+  - 4
+
+input_channels: 4
+
+image_size:
+  - 96
+  - 96
+  - 96
+
+modalities:
+  - T1
+  - T1c
+  - T2
+  - FLAIR
+
+train_ratio: 0.70
+val_ratio: 0.10
+test_ratio: 0.20
+
+random_state: 42
