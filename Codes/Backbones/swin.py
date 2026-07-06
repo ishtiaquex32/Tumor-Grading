@@ -536,10 +536,8 @@ print(
 
 print("\n========== FINAL TEST RESULTS ==========")
 
-# Header row
 print("\t".join(test_metrics.keys()))
 
-# Value row
 print("\t".join(f"{v:.5f}" for v in test_metrics.values()))
 
 print("========================================")
