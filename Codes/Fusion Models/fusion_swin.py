@@ -38,8 +38,8 @@ EPOCHS = 50
 LR = 1e-4
 RANDOM_STATE = 42
 
-patience1 = 7
-patience2 = 17
+patience1 = 3
+patience2 = 12
 min_delta = 0.001
 
 IMG_SIZE = (96, 96, 96)
