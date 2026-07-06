@@ -137,7 +137,7 @@ These files define:
 ### Topological Features
 
 ```bash
-python Codes/tda.py
+python Codes/Feature Extraction/tda.py
 ```
 
 ---
@@ -145,7 +145,7 @@ python Codes/tda.py
 ### Radiomics Features
 
 ```bash
-python Codes/radiomics.py
+python Codes/Feature Extraction/radiomics.py
 ```
 
 ---
@@ -155,25 +155,25 @@ python Codes/radiomics.py
 ResNet3D
 
 ```bash
-python Codes/resnet3d.py
+python Codes/Backbones/resnet3d.py
 ```
 
 X3D
 
 ```bash
-python Codes/x3d.py
+python Codes/Backbones/x3d.py
 ```
 
 UNETR
 
 ```bash
-python Codes/vit.py
+python Codes/Backbones/vit.py
 ```
 
 SwinUNETR
 
 ```bash
-python Codes/swin.py
+python Codes/Backbones/swin.py
 ```
 
 ---
@@ -183,25 +183,25 @@ python Codes/swin.py
 ResNet3D + TDA
 
 ```bash
-python Codes/fusion_resnet3d.py
+python Codes/Fusion Models/fusion_resnet3d.py
 ```
 
 X3D + TDA
 
 ```bash
-python Codes/fusion_x3d.py
+python Codes/Fusion Models/fusion_x3d.py
 ```
 
 UNETR + TDA
 
 ```bash
-python Codes/fusion_vit.py
+python Codes/Fusion Models/fusion_vit.py
 ```
 
 SwinUNETR + TDA
 
 ```bash
-python Codes/fusion_swin.py
+python Codes/Fusion Models/fusion_swin.py
 ```
 
 ---
