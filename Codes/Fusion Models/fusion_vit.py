@@ -35,8 +35,8 @@ EPOCHS = 50
 LR = 1e-4
 RANDOM_STATE = 42
 
-patience1 = 7
-patience2 = 17
+patience1 = 3
+patience2 = 12
 min_delta = 0.001
 
 IMG_SIZE = (96, 96, 96)
@@ -161,7 +161,6 @@ class UCSFViTTDADataset(Dataset):
 
         image = np.load(path).astype(np.float32)
 
-        # Accept [4,96,96,96] or [96,96,96,4]
         if image.shape[-1] == 4:
             image = np.transpose(image, (3, 0, 1, 2))
 
@@ -532,10 +531,8 @@ print(
 
 print("\n========== FINAL TEST RESULTS ==========")
 
-# Header row
 print("\t".join(test_metrics.keys()))
 
-# Value row
 print("\t".join(f"{v:.5f}" for v in test_metrics.values()))
 
 print("========================================")
