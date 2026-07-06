@@ -302,10 +302,8 @@ y = np.array(y)
 print("Feature shape:", X.shape)
 print("Labels shape :", y.shape)
 
-#%%
 from sklearn.model_selection import train_test_split
 
-# Step 1: Split out 20% test set
 X_temp, X_test, y_temp, y_test = train_test_split(
     X,
     y,
@@ -314,12 +312,10 @@ X_temp, X_test, y_temp, y_test = train_test_split(
     stratify=y
 )
 
-# Step 2: Split remaining 80% into 70% train and 10% val
-# 10% out of total means 10/80 = 0.125 of remaining
 X_train, X_val, y_train, y_val = train_test_split(
     X_temp,
     y_temp,
-    test_size=0.125,   # 0.125 * 0.80 = 0.10 total
+    test_size=0.125,
     random_state=42,
     stratify=y_temp
 )
