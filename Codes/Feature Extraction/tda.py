@@ -25,10 +25,6 @@ from sklearn.metrics import (
 from sklearn.feature_selection import SelectFromModel
 from xgboost import XGBClassifier
 
-# ============================================================
-# CONFIG
-# ============================================================
-
 DATASET_DIR = ('/Folder Directory/UTSW-Glioma')
 TSV_PATH = "/Folder Directory/UTSW_Glioma_Metadata.tsv"
 
@@ -60,10 +56,6 @@ MD = 6
 alpha = 0.04
 N_THRESHOLDS = 50
 RANDOM_STATE = 42
-
-# ============================================================
-# HELPERS
-# ============================================================
 
 def normalize_volume(x):
     x = x.astype(np.float32)
@@ -123,10 +115,6 @@ def find_modality_file(folder, modality):
         return path
 
     return None
-
-# ============================================================
-# BETTI FEATURES
-# ============================================================
 
 def compute_persistence(volume):
     cc = gd.CubicalComplex(top_dimensional_cells=volume)
@@ -275,10 +263,6 @@ def preprocess_and_save(dataframe):
 
 preprocess_and_save(df)
 
-# ============================================================
-# FEATURE EXTRACTION FROM PREPROCESSED .NPY FILES
-# ============================================================
-
 X = []
 y = []
 patient_names = []
@@ -324,10 +308,6 @@ print("Train:", X_train.shape)
 print("Val  :", X_val.shape)
 print("Test :", X_test.shape)
 
-# ============================================================
-# CLASS IMBALANCE SETUP FOR XGBOOST
-# ============================================================
-
 neg_count = np.sum(y_train == 0)
 pos_count = np.sum(y_train == 1)
 
@@ -337,9 +317,6 @@ print("Negative count:", neg_count)
 print("Positive count:", pos_count)
 print("scale_pos_weight:", scale_pos_weight)
 
-# ============================================================
-# XGBOOST BASELINE
-# ============================================================
 model = XGBClassifier(
     n_estimators=300,
     max_depth=MD,
@@ -355,9 +332,6 @@ model = XGBClassifier(
 
 model.fit(X_train, y_train)
 
-# ============================================================
-# VALIDATION PERFORMANCE
-# ============================================================
 val_prob = model.predict_proba(X_val)[:,1]
 val_pred = (val_prob > 0.5).astype(int)
 
@@ -377,10 +351,6 @@ X_test_fs  = selector.transform(X_test)
 
 print("Selected features:", X_train_fs.shape[1])
 
-# ============================================================
-# SAVE SELECTED FEATURES
-# ============================================================
-
 np.save("X_train_fs2.npy", X_train_fs)
 np.save("y_train_fs2.npy", y_train)
 
@@ -392,9 +362,6 @@ np.save("y_test_fs2.npy", y_test)
 
 print("\nSelected feature matrices saved.")
 
-# ============================================================
-# RETRAIN WITH SELECTED FEATURES
-# ============================================================
 model_fs = XGBClassifier(
     n_estimators=200,
     max_depth=MD,
@@ -434,20 +401,13 @@ tn, fp, fn, tp = confusion_matrix(y_test, test_pred).ravel()
 sens = tp / (tp + fn)
 spec = tn / (tn + fp)
 
-# ============================================================
-# RESULTS
-# ============================================================
-print("\n========== TEST RESULTS ===========")
+print("\n TEST RESULTS")
 print("AUC         :", round(auc,4))
 print("Accuracy    :", round(acc,4))
 print("F1 Score    :", round(f1,4))
 print("Sensitivity :", round(sens,4))
 print("Specificity :", round(spec,4))
-print("==============================================")
 
-# ============================================================
-# CHANNEL-WISE FEATURE ANALYSIS
-# ============================================================
 selected_idx = selector.get_support(indices=True)
 
 channel_count = {
