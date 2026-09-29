@@ -91,7 +91,6 @@ class UCSFSwinDataset(Dataset):
 
         image = np.load(path).astype(np.float32)
 
-        # Accept [4,96,96,96] or [96,96,96,4]
         if image.shape[-1] == 4:
             image = np.transpose(image, (3, 0, 1, 2))
 
