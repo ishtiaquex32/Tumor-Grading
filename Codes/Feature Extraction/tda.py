@@ -10,7 +10,6 @@ import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 from monai.networks.nets import resnet18
-
 from scipy.ndimage import zoom
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import (
@@ -21,7 +20,6 @@ from sklearn.metrics import (
     recall_score,
     confusion_matrix
 )
-
 from sklearn.feature_selection import SelectFromModel
 from xgboost import XGBClassifier
 
@@ -64,7 +62,6 @@ def normalize_volume(x):
     x = (x - np.mean(x)) / np.std(x)
     return x
 
-
 def resize_volume(vol, target_shape=TARGET_SHAPE):
     factors = (
         target_shape[0] / vol.shape[0],
@@ -72,7 +69,6 @@ def resize_volume(vol, target_shape=TARGET_SHAPE):
         target_shape[2] / vol.shape[2],
     )
     return zoom(vol, factors, order=1)
-
 
 def load_nifti(path):
     return nib.load(path).get_fdata()
@@ -86,7 +82,6 @@ def intensity_transform(vol):
     vol = np.clip(vol, 0, 3)
 
     return vol
-
 
 def get_patient_folder(dataset_dir, patient_id):
 
@@ -154,7 +149,6 @@ def normalize_curve(curve):
         return curve
     return curve / np.max(curve)
 
-
 def betti_features_3d(volume, n_thresholds=50):
 
     vmin, vmax = np.min(volume), np.max(volume)
@@ -207,7 +201,6 @@ def extract_patient_features_from_npy(pid):
 PREPROCESSED_DIR = "./preprocessed_96_2"
 
 os.makedirs(PREPROCESSED_DIR, exist_ok=True)
-
 
 def preprocess_and_save(dataframe):
 
