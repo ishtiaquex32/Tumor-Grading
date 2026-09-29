@@ -22,11 +22,6 @@ from sklearn.metrics import (
 from sklearn.feature_selection import SelectFromModel
 from xgboost import XGBClassifier
 
-
-# ============================================================
-# CONFIG
-# ============================================================
-
 DATASET_DIR = "/Folder Directory/UCSF-PDGM-v5"
 CSV_PATH = "/Folder Directory/UCSF-PDGM-metadata_v5.csv"
 
@@ -43,10 +38,6 @@ torch.backends.cudnn.benchmark = True
 print("CUDA available:", torch.cuda.is_available())
 if torch.cuda.is_available():
     print("GPU:", torch.cuda.get_device_name(0))
- 
-# ============================================================
-# HELPERS
-# ============================================================
 
 def get_patient_folder(dataset_dir, patient_id):
     num = patient_id.split("-")[-1]
@@ -86,10 +77,6 @@ def find_tumor_mask(folder):
 
     return files[0]
 
-
-# ============================================================
-# RADIOMICS EXTRACTOR
-# ============================================================
 params = {
     "binWidth": 25,
     "resampledPixelSpacing": None,
@@ -109,11 +96,6 @@ extractor.enableImageTypeByName("Original")
 
 print("Active Image Types:", list(extractor.enabledImagetypes.keys()))
 print("Active Feature Classes:", list(extractor.enabledFeatures.keys()))
-
-
-# ============================================================
-# EXTRACT FEATURES FOR ONE PATIENT
-# ============================================================
 
 def extract_patient_radiomics(folder, patient_id):
     mask_path = find_tumor_mask(folder)
@@ -158,11 +140,6 @@ def extract_patient_radiomics(folder, patient_id):
 
     return all_features
 
-
-# ============================================================
-# LOAD METADATA
-# ============================================================
-
 df = pd.read_csv(CSV_PATH)
 
 df = df[df["WHO CNS Grade"].notna()]
@@ -174,11 +151,6 @@ df["label"] = df["WHO CNS Grade"].apply(
 
 print("Total usable patients:", len(df))
 print(df["label"].value_counts())
-
-
-# ============================================================
-# SPLIT FIRST: 70 / 10 / 20
-# ============================================================
 
 X_temp, test_df = train_test_split(
     df,
@@ -197,11 +169,6 @@ train_df, val_df = train_test_split(
 print("Train:", len(train_df))
 print("Val  :", len(val_df))
 print("Test :", len(test_df))
-
-
-# ============================================================
-# FEATURE EXTRACTION
-# ============================================================
 
 def build_radiomics_dataframe(split_df, split_name):
     rows = []
@@ -236,10 +203,6 @@ train_rad = build_radiomics_dataframe(train_df, "train")
 val_rad = build_radiomics_dataframe(val_df, "val")
 test_rad = build_radiomics_dataframe(test_df, "test")
 
-# ============================================================
-# ALIGN COMMON FEATURES
-# ============================================================
-
 feature_cols = [
     c for c in train_rad.columns
     if c not in ["ID", "label"]
@@ -260,11 +223,6 @@ X_test = test_rad[feature_cols].values
 y_test = test_rad["label"].values
 
 print("Initial radiomics feature count:", X_train.shape[1])
-
-
-# ============================================================
-# IMPUTE + SCALE
-# ============================================================
 
 imputer = SimpleImputer(strategy="median")
 
@@ -293,11 +251,6 @@ pd.Series(feature_cols).to_csv(
     index=False
 )
 
-
-# ============================================================
-# XGBOOST BASELINE
-# ============================================================
-
 xgb_params = dict(
     n_estimators=300,
     max_depth=6,
@@ -318,10 +271,6 @@ model = XGBClassifier(**xgb_params)
 
 model.fit(X_train, y_train)
 
-# ============================================================
-# VALIDATION PERFORMANCE
-# ============================================================
-
 val_prob = model.predict_proba(X_val)[:, 1]
 val_pred = (val_prob > 0.5).astype(int)
 
@@ -329,16 +278,10 @@ val_auc = roc_auc_score(y_val, val_prob)
 val_acc = accuracy_score(y_val, val_pred)
 val_f1 = f1_score(y_val, val_pred)
 
-print("\n========== BASELINE VALIDATION ==========")
+print("\n BASELINE VALIDATION")
 print("Val AUC :", round(val_auc, 4))
 print("Val Acc :", round(val_acc, 4))
 print("Val F1  :", round(val_f1, 4))
-print("=========================================")
-
-
-# ============================================================
-# FEATURE IMPORTANCE
-# ============================================================
 
 importances = model.feature_importances_
 
@@ -347,11 +290,6 @@ print("Min importance   :", np.min(importances))
 print("Median importance:", np.median(importances))
 print("Max importance   :", np.max(importances))
 print("Nonzero features :", np.sum(importances > 0), "/", len(importances))
-
-
-# ============================================================
-# FEATURE SELECTION
-# ============================================================
 
 selector = SelectFromModel(
     model,
@@ -369,30 +307,19 @@ selected_feature_names = [feature_cols[i] for i in selected_idx]
 
 print("Selected features:", X_train_fs.shape[1])
 
-
-# Save selected features
-#np.save("X_train_radiomics_selected.npy", X_train_fs)
-#np.save("X_val_radiomics_selected.npy", X_val_fs)
-#np.save("X_test_radiomics_selected.npy", X_test_fs)
+Save selected features
+np.save("X_train_radiomics_selected.npy", X_train_fs)
+np.save("X_val_radiomics_selected.npy", X_val_fs)
+np.save("X_test_radiomics_selected.npy", X_test_fs)
 
 pd.Series(selected_feature_names).to_csv(
     "radiomics_selected_feature_names.csv",
     index=False
 )
 
-
-# ============================================================
-# RETRAIN XGBOOST WITH SELECTED FEATURES
-# ============================================================
-
 model_fs = XGBClassifier(**xgb_params)
 
 model_fs.fit(X_train_fs, y_train)
-
-
-# ============================================================
-# TEST EVALUATION
-# ============================================================
 
 from sklearn.metrics import roc_curve
 
@@ -420,7 +347,7 @@ tn, fp, fn, tp = confusion_matrix(y_test, test_pred).ravel()
 sens = tp / (tp + fn)
 spec = tn / (tn + fp)
 
-print("\n========== TEST RESULTS: SELECTED RADIOMICS ==========")
+print("\n TEST RESULTS: SELECTED RADIOMICS")
 print("AUC         :", round(auc, 4))
 print("Accuracy    :", round(acc, 4))
 print("F1 Score    :", round(f1, 4))
@@ -428,7 +355,6 @@ print("Sensitivity :", round(sens, 4))
 print("Specificity :", round(spec, 4))
 print("Precision   :", round(prec, 4))
 print("Recall      :", round(rec, 4))
-print("=====================================================")
 
 selected_idx = selector.get_support(indices=True)
 
