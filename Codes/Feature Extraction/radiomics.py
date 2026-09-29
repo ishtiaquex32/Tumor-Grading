@@ -84,7 +84,6 @@ params = {
     "normalize": True,
     "normalizeScale": 100,
     "removeOutliers": 3,
-   # "force2D": True,
 }
 
 extractor = featureextractor.RadiomicsFeatureExtractor(**params)
@@ -236,8 +235,6 @@ X_train = scaler.fit_transform(X_train)
 X_val = scaler.transform(X_val)
 X_test = scaler.transform(X_test)
 
-
-# Save processed full features
 np.save("X_train_radiomics_full.npy", X_train)
 np.save("X_val_radiomics_full.npy", X_val)
 np.save("X_test_radiomics_full.npy", X_test)
@@ -333,7 +330,6 @@ best_threshold = thresholds[best_idx]
 print("Best validation threshold:", best_threshold)
 
 test_prob = model_fs.predict_proba(X_test_fs)[:, 1]
-#test_pred = (test_prob > 0.5).astype(int)
 test_pred = (test_prob > best_threshold).astype(int)
 
 auc = roc_auc_score(y_test, test_prob)
