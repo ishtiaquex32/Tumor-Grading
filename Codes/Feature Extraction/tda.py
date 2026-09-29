@@ -284,17 +284,19 @@ print("Labels shape :", y.shape)
 
 from sklearn.model_selection import train_test_split
 
-X_temp, X_test, y_temp, y_test = train_test_split(
+X_temp, X_test, y_temp, y_test, pid_temp, pid_test = train_test_split(
     X,
     y,
+    patient_names,
     test_size=0.20,
     random_state=42,
     stratify=y
 )
 
-X_train, X_val, y_train, y_val = train_test_split(
+X_train, X_val, y_train, y_val, pid_train, pid_val = train_test_split(
     X_temp,
     y_temp,
+    pid_temp,
     test_size=0.125,
     random_state=42,
     stratify=y_temp
@@ -355,6 +357,10 @@ np.save("y_val_fs2.npy", y_val)
 
 np.save("X_test_fs2.npy", X_test_fs)
 np.save("y_test_fs2.npy", y_test)
+
+np.save("pid_train_fs2.npy", np.array(pid_train))
+np.save("pid_val_fs2.npy", np.array(pid_val))
+np.save("pid_test_fs2.npy", np.array(pid_test))
 
 print("\nSelected feature matrices saved.")
 
