@@ -2,14 +2,11 @@ import os
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
-
 import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 from torch.amp import autocast, GradScaler
-
 from monai.networks.nets import UNETR
-
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import (
@@ -17,11 +14,6 @@ from sklearn.metrics import (
     precision_score, recall_score, confusion_matrix,
     balanced_accuracy_score, roc_curve
 )
-
-
-# ============================================================
-# CONFIG
-# ============================================================
 
 CSV_PATH = "/Folder Directory/UCSF-PDGM-metadata_v5.csv"
 IMAGE_FOLDER = "preprocessed_g_96_501"
@@ -35,7 +27,7 @@ EPOCHS = 50
 LR = 1e-4
 RANDOM_STATE = 42
 
-patience1 = 3
+patience1 = 7
 patience2 = 12
 min_delta = 0.001
 
@@ -62,19 +54,9 @@ print("CUDA available:", torch.cuda.is_available())
 if torch.cuda.is_available():
     print("GPU:", torch.cuda.get_device_name(0))
 
-
-# ============================================================
-# ID NORMALIZATION
-# ============================================================
-
 def normalize_ucsf_id(pid):
     num = str(pid).split("-")[-1].zfill(3)
     return f"UCSF-PDGM-{num}"
-
-
-# ============================================================
-# LOAD METADATA
-# ============================================================
 
 df = pd.read_csv(CSV_PATH)
 
@@ -86,11 +68,6 @@ df["file_id"] = df["ID"].apply(normalize_ucsf_id)
 
 print("Total usable patients:", len(df))
 print(df["label"].value_counts())
-
-
-# ============================================================
-# SPLIT 70 / 10 / 20
-# ============================================================
 
 X_temp, test_df = train_test_split(
     df,
@@ -110,11 +87,6 @@ print("Train:", len(train_df))
 print("Val  :", len(val_df))
 print("Test :", len(test_df))
 
-
-# ============================================================
-# LOAD TDA FEATURES
-# ============================================================
-
 X_train_tda = np.load(TDA_TRAIN_PATH).astype(np.float32)
 X_val_tda   = np.load(TDA_VAL_PATH).astype(np.float32)
 X_test_tda  = np.load(TDA_TEST_PATH).astype(np.float32)
@@ -132,11 +104,6 @@ tda_scaler = StandardScaler()
 X_train_tda = tda_scaler.fit_transform(X_train_tda).astype(np.float32)
 X_val_tda   = tda_scaler.transform(X_val_tda).astype(np.float32)
 X_test_tda  = tda_scaler.transform(X_test_tda).astype(np.float32)
-
-
-# ============================================================
-# DATASET
-# ============================================================
 
 class UCSFViTTDADataset(Dataset):
 
@@ -170,7 +137,6 @@ class UCSFViTTDADataset(Dataset):
 
         return image, tda, label
 
-
 train_loader = DataLoader(
     UCSFViTTDADataset(train_df, IMAGE_FOLDER, X_train_tda),
     batch_size=BATCH_SIZE,
@@ -197,11 +163,6 @@ test_loader = DataLoader(
     pin_memory=torch.cuda.is_available(),
     persistent_workers=True
 )
-
-
-# ============================================================
-# ViT / UNETR + TDA LATE FUSION MODEL
-# ============================================================
 
 class ViTUNETRTDALateFusion(nn.Module):
 
@@ -265,13 +226,14 @@ class ViTUNETRTDALateFusion(nn.Module):
         pooled = tokens.mean(dim=1)
 
         vit_features = self.vit_projection(pooled)
+        
         tda = self.tda_projection(tda)
+        
         fused = torch.cat([vit_features, tda], dim=1)
 
         logits = self.classifier(fused)
 
         return logits
-
 
 model = ViTUNETRTDALateFusion(
     img_size=IMG_SIZE,
@@ -286,11 +248,6 @@ model = ViTUNETRTDALateFusion(
     tda_embed_dim=TDA_EMBED_DIM,
     fusion_hidden_dim=FUSION_HIDDEN_DIM
 ).to(DEVICE)
-
-
-# ============================================================
-# LOSS / OPTIMIZER / SCHEDULER
-# ============================================================
 
 class_counts = train_df["label"].value_counts().sort_index().values
 
@@ -320,10 +277,6 @@ scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
 )
 
 scaler = GradScaler(enabled=torch.cuda.is_available())
-
-# ============================================================
-# EVALUATION
-# ============================================================
 
 def evaluate(model, loader, threshold=0.5):
 
@@ -381,7 +334,6 @@ def evaluate(model, loader, threshold=0.5):
         "specificity": spec
     }
 
-
 def get_probs_labels(model, loader):
 
     model.eval()
@@ -408,10 +360,6 @@ def get_probs_labels(model, loader):
             labels_all.extend(y.numpy())
 
     return np.array(probs_all), np.array(labels_all)
-
-# ============================================================
-# TRAINING LOOP
-# ============================================================
 
 best_auc = 0
 epochs_without_improvement = 0
@@ -451,7 +399,7 @@ for epoch in range(EPOCHS):
 
     current_lr = optimizer.param_groups[0]["lr"]
 
-    print("\n====================================")
+    print("\n===")
     print(f"Epoch {epoch + 1}/{EPOCHS}")
     print("Train Loss :", round(train_loss, 4))
     print("Val AUC    :", round(val_metrics["auc"], 4))
@@ -460,7 +408,6 @@ for epoch in range(EPOCHS):
     print("Val Sens   :", round(val_metrics["sensitivity"], 4))
     print("Val Spec   :", round(val_metrics["specificity"], 4))
     print("LR         :", current_lr)
-    print("====================================")
 
     if val_metrics["auc"] > best_auc + min_delta:
 
@@ -487,11 +434,6 @@ for epoch in range(EPOCHS):
 
         print("\nEarly stopping triggered.")
         break
-
-
-# ============================================================
-# TEST EVALUATION
-# ============================================================
 
 model.load_state_dict(
     torch.load(
@@ -529,10 +471,8 @@ print(
     np.unique((test_probs > best_threshold).astype(int), return_counts=True)
 )
 
-print("\n========== FINAL TEST RESULTS ==========")
+print("\n FINAL TEST RESULTS")
 
 print("\t".join(test_metrics.keys()))
 
 print("\t".join(f"{v:.5f}" for v in test_metrics.values()))
-
-print("========================================")
