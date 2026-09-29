@@ -1,6 +1,4 @@
-# ==========================================================
 # UTSW Dataset Configuration
-# ==========================================================
 
 dataset_name: UTSW
 
@@ -45,5 +43,3 @@ modalities:
 train_ratio: 0.70
 val_ratio: 0.10
 test_ratio: 0.20
-
-random_state: 42
