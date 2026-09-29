@@ -1,11 +1,9 @@
 import os
 import numpy as np
 import pandas as pd
-
 import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
-
 from monai.networks.nets import resnet18
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import (
@@ -13,7 +11,6 @@ from sklearn.metrics import (
     precision_score, recall_score, confusion_matrix,
     balanced_accuracy_score, roc_curve
 )
-
 from tqdm import tqdm
 from torch.amp import autocast, GradScaler
 
