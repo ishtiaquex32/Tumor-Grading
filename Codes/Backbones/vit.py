@@ -17,11 +17,6 @@ from sklearn.metrics import (
     balanced_accuracy_score, roc_curve
 )
 
-
-# ============================================================
-# CONFIG
-# ============================================================
-
 TSV_PATH = "/Folder Directory/UTSW_Glioma_Metadata.tsv"
 IMAGE_FOLDER = "preprocessed_96_2"
 BEST_MODEL_PATH = "vit24.pth"
@@ -51,18 +46,8 @@ print("CUDA available:", torch.cuda.is_available())
 if torch.cuda.is_available():
     print("GPU:", torch.cuda.get_device_name(0))
 
-
-# ============================================================
-# ID NORMALIZATION
-# ============================================================
-
 def normalize_file_id(pid):
     return str(pid)
-
-
-# ============================================================
-# LOAD METADATA
-# ============================================================
 
 df = pd.read_csv(TSV_PATH, sep="\t")
 
@@ -74,11 +59,6 @@ df["file_id"] = df["Subject ID"].apply(normalize_file_id)
 
 print("Total usable patients:", len(df))
 print(df["label"].value_counts())
-
-
-# ============================================================
-# SPLIT 70 / 10 / 20
-# ============================================================
 
 X_temp, test_df = train_test_split(
     df,
@@ -97,11 +77,6 @@ train_df, val_df = train_test_split(
 print("Train:", len(train_df))
 print("Val  :", len(val_df))
 print("Test :", len(test_df))
-
-
-# ============================================================
-# DATASET
-# ============================================================
 
 class UCSFViTDataset(Dataset):
 
@@ -123,7 +98,6 @@ class UCSFViTDataset(Dataset):
 
         image = np.load(path).astype(np.float32)
 
-        # Accept [4,96,96,96] or [96,96,96,4]
         if image.shape[-1] == 4:
             image = np.transpose(image, (3, 0, 1, 2))
 
@@ -131,7 +105,6 @@ class UCSFViTDataset(Dataset):
         label = torch.tensor(label, dtype=torch.long)
 
         return image, label
-
 
 train_loader = DataLoader(
     UCSFViTDataset(train_df, IMAGE_FOLDER),
@@ -159,11 +132,6 @@ test_loader = DataLoader(
     pin_memory=torch.cuda.is_available(),
     persistent_workers=True
 )
-
-
-# ============================================================
-# 3D ViT-UNet / UNETR CLASSIFIER
-# ============================================================
 
 class ViTUNETClassifier(nn.Module):
 
@@ -203,14 +171,9 @@ class ViTUNETClassifier(nn.Module):
         )
 
     def forward(self, x):
-
-        # Use ViT encoder only.
-        # MONAI UNETR ViT returns:
-        # tokens: [B, num_patches, hidden_size]
-        # hidden_states_out: list of intermediate states
+        
         tokens, hidden_states_out = self.unetr.vit(x)
 
-        # Global average pooling over patch tokens
         pooled = tokens.mean(dim=1)
 
         logits = self.classifier(pooled)
@@ -227,11 +190,6 @@ model = ViTUNETClassifier(
     mlp_dim=MLP_DIM,
     num_heads=NUM_HEADS
 ).to(DEVICE)
-
-
-# ============================================================
-# LOSS / OPTIMIZER / SCHEDULER
-# ============================================================
 
 class_counts = train_df["label"].value_counts().sort_index().values
 
@@ -261,11 +219,6 @@ scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
 )
 
 scaler = GradScaler(enabled=torch.cuda.is_available())
-
-
-# ============================================================
-# EVALUATION
-# ============================================================
 
 def evaluate(model, loader, threshold=0.5):
 
@@ -349,11 +302,6 @@ def get_probs_labels(model, loader):
 
     return np.array(probs_all), np.array(labels_all)
 
-
-# ============================================================
-# TRAINING LOOP
-# ============================================================
-
 best_auc = 0
 epochs_without_improvement = 0
 min_delta = 0.001
@@ -392,7 +340,7 @@ for epoch in range(EPOCHS):
 
     current_lr = optimizer.param_groups[0]["lr"]
 
-    print("\n====================================")
+    print("\n===")
     print(f"Epoch {epoch + 1}/{EPOCHS}")
     print("Train Loss :", round(train_loss, 4))
     print("Val AUC    :", round(val_metrics["auc"], 4))
@@ -401,7 +349,6 @@ for epoch in range(EPOCHS):
     print("Val Sens   :", round(val_metrics["sensitivity"], 4))
     print("Val Spec   :", round(val_metrics["specificity"], 4))
     print("LR         :", current_lr)
-    print("====================================")
 
     if val_metrics["auc"] > best_auc + min_delta:
 
@@ -429,11 +376,6 @@ for epoch in range(EPOCHS):
         print("\nEarly stopping triggered.")
         break
 
-
-# ============================================================
-# TEST EVALUATION
-# ============================================================
-
 model.load_state_dict(
     torch.load(
         BEST_MODEL_PATH,
@@ -441,18 +383,10 @@ model.load_state_dict(
     )
 )
 
-# ------------------------------------------------------------
-# STEP 1: GET VALIDATION PROBABILITIES
-# ------------------------------------------------------------
-
 val_probs, val_labels = get_probs_labels(
     model,
     val_loader
 )
-
-# ------------------------------------------------------------
-# STEP 2: FIND BEST THRESHOLD FROM VALIDATION SET
-# ------------------------------------------------------------
 
 fpr, tpr, thresholds = roc_curve(
     val_labels,
@@ -466,10 +400,6 @@ best_idx = np.argmax(j_scores)
 best_threshold = thresholds[best_idx]
 
 print("\nBest validation threshold:", round(best_threshold, 4))
-
-# ------------------------------------------------------------
-# OPTIONAL: SEE HOW VALIDATION BEHAVES
-# ------------------------------------------------------------
 
 for th in [0.5, 0.6, 0.7, 0.8]:
 
@@ -489,19 +419,11 @@ for th in [0.5, 0.6, 0.7, 0.8]:
         f"Spec={spec:.3f}"
     )
 
-# ------------------------------------------------------------
-# STEP 3: APPLY SAME THRESHOLD TO TEST SET
-# ------------------------------------------------------------
-
 test_metrics = evaluate(
     model,
     test_loader,
     threshold=best_threshold
 )
-
-# ------------------------------------------------------------
-# STEP 4: PRINT TEST PROBABILITY DISTRIBUTION
-# ------------------------------------------------------------
 
 test_probs, test_labels = get_probs_labels(
     model,
@@ -529,14 +451,8 @@ print(
     )
 )
 
-# ------------------------------------------------------------
-# STEP 5: FINAL TEST RESULTS
-# ------------------------------------------------------------
-
-print("\n========== FINAL TEST RESULTS ==========")
+print("\n FINAL TEST RESULTS")
 
 print("\t".join(test_metrics.keys()))
 
 print("\t".join(f"{v:.5f}" for v in test_metrics.values()))
-
-print("========================================")
