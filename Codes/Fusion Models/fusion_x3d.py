@@ -2,12 +2,10 @@ import os
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
-
 import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 from torch.amp import autocast, GradScaler
-
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import (
@@ -15,10 +13,6 @@ from sklearn.metrics import (
     precision_score, recall_score, confusion_matrix,
     balanced_accuracy_score, roc_curve
 )
-
-# ============================================================
-# CONFIG
-# ============================================================
 
 CSV_PATH = "/Folder Directory/UCSF-PDGM-metadata_v5.csv"
 IMAGE_FOLDER = "preprocessed_g_96_501"
@@ -51,19 +45,9 @@ print("CUDA available:", torch.cuda.is_available())
 if torch.cuda.is_available():
     print("GPU:", torch.cuda.get_device_name(0))
 
-
-# ============================================================
-# ID NORMALIZATION
-# ============================================================
-
 def normalize_ucsf_id(pid):
     num = str(pid).split("-")[-1].zfill(3)
     return f"UCSF-PDGM-{num}"
-
-
-# ============================================================
-# LOAD METADATA
-# ============================================================
 
 df = pd.read_csv(CSV_PATH)
 
@@ -75,11 +59,6 @@ df["file_id"] = df["ID"].apply(normalize_ucsf_id)
 
 print("Total usable patients:", len(df))
 print(df["label"].value_counts())
-
-
-# ============================================================
-# SPLIT 70 / 10 / 20
-# ============================================================
 
 X_temp, test_df = train_test_split(
     df,
@@ -99,11 +78,6 @@ print("Train:", len(train_df))
 print("Val  :", len(val_df))
 print("Test :", len(test_df))
 
-
-# ============================================================
-# LOAD TDA FEATURES
-# ============================================================
-
 X_train_tda = np.load(TDA_TRAIN_PATH).astype(np.float32)
 X_val_tda   = np.load(TDA_VAL_PATH).astype(np.float32)
 X_test_tda  = np.load(TDA_TEST_PATH).astype(np.float32)
@@ -114,16 +88,11 @@ print("TDA test shape :", X_test_tda.shape)
 
 TDA_DIM = X_train_tda.shape[1]
 
-# Scale TDA using train statistics only
 tda_scaler = StandardScaler()
 
 X_train_tda = tda_scaler.fit_transform(X_train_tda).astype(np.float32)
 X_val_tda   = tda_scaler.transform(X_val_tda).astype(np.float32)
 X_test_tda  = tda_scaler.transform(X_test_tda).astype(np.float32)
-
-# ============================================================
-# DATASET
-# ============================================================
 
 class UCSFX3DTDAFusionDataset(Dataset):
 
@@ -151,8 +120,7 @@ class UCSFX3DTDAFusionDataset(Dataset):
         )
 
         image = np.load(image_path).astype(np.float32)
-
-        # Accept [4,96,96,96] or [96,96,96,4]
+        
         if image.shape[-1] == 4:
             image = np.transpose(image, (3, 0, 1, 2))
 
@@ -166,7 +134,6 @@ class UCSFX3DTDAFusionDataset(Dataset):
         label = torch.tensor(label, dtype=torch.long)
 
         return image, tda, label
-
 
 train_dataset = UCSFX3DTDAFusionDataset(
     train_df,
@@ -185,7 +152,6 @@ test_dataset = UCSFX3DTDAFusionDataset(
     IMAGE_FOLDER,
     X_test_tda
 )
-
 
 train_loader = DataLoader(
     train_dataset,
@@ -214,28 +180,17 @@ test_loader = DataLoader(
     persistent_workers=True
 )
 
-
-# ============================================================
-# X3D + TDA LATE FUSION MODEL
-# ============================================================
-
 class X3DTDALateFusion(nn.Module):
 
     def __init__(self, tda_dim, num_classes=2):
         super().__init__()
 
-        # =====================================================
-        # 4 → 3 channels for pretrained X3D
-        # =====================================================
         self.adapter = nn.Sequential(
             nn.Conv3d(4, 3, kernel_size=1, bias=False),
             nn.BatchNorm3d(3),
             nn.ReLU(inplace=True)
         )
 
-        # =====================================================
-        # X3D backbone
-        # =====================================================
         x3d_full = torch.hub.load(
             "facebookresearch/pytorchvideo",
             "x3d_m",
@@ -250,9 +205,6 @@ class X3DTDALateFusion(nn.Module):
 
         self.cnn_dim = 192
 
-        # =====================================================
-        # CNN projection: 192 → 128
-        # =====================================================
         self.cnn_projection = nn.Sequential(
             nn.Linear(192, cnn_embed_dim),
             nn.LayerNorm(cnn_embed_dim),
@@ -260,9 +212,6 @@ class X3DTDALateFusion(nn.Module):
             nn.Dropout(0.3)
         )
 
-        # =====================================================
-        # TDA projection: 364 → 128
-        # =====================================================
         self.tda_projection = nn.Sequential(
             nn.Linear(tda_dim, tda_embed_dim),
             nn.LayerNorm(tda_embed_dim),
@@ -276,9 +225,6 @@ class X3DTDALateFusion(nn.Module):
         print("TDA dim before projection :", tda_dim)
         print("Fusion dim after projection:", fusion_dim)
 
-        # =====================================================
-        # Fusion classifier
-        # =====================================================
         self.classifier = nn.Sequential(
 
             nn.Linear(fusion_dim, class_embed_dim1),
@@ -298,11 +244,11 @@ class X3DTDALateFusion(nn.Module):
 
         feat = torch.flatten(feat, 1)
 
-        feat = self.cnn_projection(feat)      # [B,128]
+        feat = self.cnn_projection(feat)      
 
-        tda = self.tda_projection(tda)        # [B,128]
+        tda = self.tda_projection(tda)        
 
-        fused = torch.cat([feat, tda], dim=1) # [B,256]
+        fused = torch.cat([feat, tda], dim=1) 
 
         logits = self.classifier(fused)
 
@@ -312,10 +258,6 @@ model = X3DTDALateFusion(
     tda_dim=TDA_DIM,
     num_classes=NUM_CLASSES
 ).to(DEVICE)
-
-# ============================================================
-# LOSS / OPTIMIZER / SCHEDULER
-# ============================================================
 
 class_counts = train_df["label"].value_counts().sort_index().values
 
@@ -345,11 +287,6 @@ scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
 )
 
 scaler = GradScaler(enabled=torch.cuda.is_available())
-
-
-# ============================================================
-# EVALUATION
-# ============================================================
 
 def evaluate(model, loader, threshold=0.5):
 
@@ -407,7 +344,6 @@ def evaluate(model, loader, threshold=0.5):
         "specificity": spec
     }
 
-
 def get_probs_labels(model, loader):
 
     model.eval()
@@ -434,11 +370,6 @@ def get_probs_labels(model, loader):
             labels_all.extend(y.numpy())
 
     return np.array(probs_all), np.array(labels_all)
-
-
-# ============================================================
-# TRAINING LOOP
-# ============================================================
 
 best_auc = 0
 epochs_without_improvement = 0
@@ -483,7 +414,7 @@ for epoch in range(EPOCHS):
 
     current_lr = optimizer.param_groups[0]["lr"]
 
-    print("\n====================================")
+    print("\n==")
     print(f"Epoch {epoch + 1}/{EPOCHS}")
     print("Train Loss :", round(train_loss, 4))
     print("Val AUC    :", round(val_metrics["auc"], 4))
@@ -492,7 +423,6 @@ for epoch in range(EPOCHS):
     print("Val Sens   :", round(val_metrics["sensitivity"], 4))
     print("Val Spec   :", round(val_metrics["specificity"], 4))
     print("LR         :", current_lr)
-    print("====================================")
 
     if val_metrics["auc"] > best_auc + min_delta:
 
@@ -520,11 +450,6 @@ for epoch in range(EPOCHS):
         print("\nEarly stopping triggered.")
         break
 
-
-# ============================================================
-# TEST EVALUATION
-# ============================================================
-
 model.load_state_dict(
     torch.load(
         BEST_MODEL_PATH,
@@ -532,18 +457,10 @@ model.load_state_dict(
     )
 )
 
-# ------------------------------------------------------------
-# STEP 1: GET VALIDATION PROBABILITIES
-# ------------------------------------------------------------
-
 val_probs, val_labels = get_probs_labels(
     model,
     val_loader
 )
-
-# ------------------------------------------------------------
-# STEP 2: FIND BEST THRESHOLD FROM VALIDATION SET
-# ------------------------------------------------------------
 
 fpr, tpr, thresholds = roc_curve(
     val_labels,
@@ -555,10 +472,6 @@ best_idx = np.argmax(j_scores)
 best_threshold = thresholds[best_idx]
 
 print("\nBest validation threshold:", round(best_threshold, 4))
-
-# ------------------------------------------------------------
-# OPTIONAL: SEE VALIDATION THRESHOLD BEHAVIOR
-# ------------------------------------------------------------
 
 val_auc = roc_auc_score(
     val_labels,
@@ -604,20 +517,11 @@ for th in [0.5, 0.6, 0.7, 0.8]:
         f"Spec={spec:.4f}"
     )
 
-
-# ------------------------------------------------------------
-# STEP 3: APPLY VALIDATION THRESHOLD TO TEST SET
-# ------------------------------------------------------------
-
 test_metrics = evaluate(
     model,
     test_loader,
     threshold=best_threshold
 )
-
-# ------------------------------------------------------------
-# STEP 4: TEST PROBABILITY DISTRIBUTION
-# ------------------------------------------------------------
 
 test_probs, test_labels = get_probs_labels(
     model,
@@ -645,14 +549,7 @@ print(
     )
 )
 
-
-# ------------------------------------------------------------
-# STEP 5: FINAL TEST RESULTS
-# ------------------------------------------------------------
-
-print("\n========== FINAL TEST RESULTS: X3D + TDA LATE FUSION ==========")
+print("\n FINAL TEST RESULTS")
 
 for k, v in test_metrics.items():
     print(f"{k}: {round(v, 4)}")
-
-print("==============================================================")
