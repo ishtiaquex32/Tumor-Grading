@@ -17,11 +17,6 @@ from sklearn.metrics import (
 from tqdm import tqdm
 from torch.amp import autocast, GradScaler
 
-
-# ============================================================
-# CONFIG
-# ============================================================
-
 TSV_PATH = "/Folder Directory/UTSW_Glioma_Metadata.tsv"
 IMAGE_FOLDER = "preprocessed_96_2"
 
@@ -43,11 +38,6 @@ print("CUDA available:", torch.cuda.is_available())
 if torch.cuda.is_available():
     print("GPU:", torch.cuda.get_device_name(0))
 
-
-# ============================================================
-# LOAD METADATA
-# ============================================================
-
 df = pd.read_csv(TSV_PATH, sep="\t")
 
 df = df[df["Tumor Grade"].notna()]
@@ -57,11 +47,6 @@ df["label"] = df["Tumor Grade"].apply(lambda x: 1 if x == 4 else 0)
 
 print("Total usable patients:", len(df))
 print(df["label"].value_counts())
-
-
-# ============================================================
-# TRAIN / VAL / TEST SPLIT
-# ============================================================
 
 X_temp, test_df = train_test_split(
     df,
@@ -80,11 +65,6 @@ train_df, val_df = train_test_split(
 print("Train:", len(train_df))
 print("Val  :", len(val_df))
 print("Test :", len(test_df))
-
-
-# ============================================================
-# DATASET
-# ============================================================
 
 class SharedBackboneMRIDataset(Dataset):
 
@@ -117,11 +97,9 @@ class SharedBackboneMRIDataset(Dataset):
 
         return image, label
 
-
 train_dataset = SharedBackboneMRIDataset(train_df, IMAGE_FOLDER)
 val_dataset   = SharedBackboneMRIDataset(val_df, IMAGE_FOLDER)
 test_dataset  = SharedBackboneMRIDataset(test_df, IMAGE_FOLDER)
-
 
 train_loader = DataLoader(
     train_dataset,
@@ -151,11 +129,6 @@ test_loader = DataLoader(
     persistent_workers=True
 )
 
-
-# ============================================================
-# MODEL
-# ============================================================
-
 model = resnet18(
     spatial_dims=3,
     n_input_channels=4,
@@ -163,11 +136,6 @@ model = resnet18(
 )
 
 model = model.to(DEVICE)
-
-
-# ============================================================
-# LOSS / OPTIMIZER / SCHEDULER
-# ============================================================
 
 criterion = nn.CrossEntropyLoss()
 
@@ -185,10 +153,6 @@ scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
 )
 
 scaler = GradScaler(enabled=torch.cuda.is_available())
-
-# ============================================================
-# EVALUATION
-# ============================================================
 
 def evaluate(model, loader, threshold=0.5):
     model.eval()
@@ -250,11 +214,6 @@ def get_probs_labels(model, loader):
 
     return np.array(probs_all), np.array(labels_all)
 
-
-# ============================================================
-# TRAINING LOOP
-# ============================================================
-
 best_auc = 0
 patience = patience2
 epochs_without_improvement = 0
@@ -295,7 +254,7 @@ for epoch in range(EPOCHS):
 
     current_lr = optimizer.param_groups[0]["lr"]
 
-    print("\n====================================")
+    print("\n==")
     print(f"Epoch {epoch + 1}/{EPOCHS}")
     print("Train Loss :", round(train_loss, 4))
     print("Val AUC    :", round(val_metrics["auc"], 4))
@@ -304,7 +263,6 @@ for epoch in range(EPOCHS):
     print("Val Sens   :", round(val_metrics["sensitivity"], 4))
     print("Val Spec   :", round(val_metrics["specificity"], 4))
     print("LR         :", current_lr)
-    print("====================================")
 
     if val_metrics["auc"] > best_auc + min_delta:
 
@@ -332,10 +290,6 @@ for epoch in range(EPOCHS):
         print("\nEarly stopping triggered.")
         break
 
-# ============================================================
-# TEST EVALUATION
-# ============================================================
-
 model.load_state_dict(
     torch.load(
         "best_lf2_resnet18_tda.pth",
@@ -343,18 +297,10 @@ model.load_state_dict(
     )
 )
 
-# ------------------------------------------------------------
-# STEP 1: GET VALIDATION PROBABILITIES
-# ------------------------------------------------------------
-
 val_probs, val_labels = get_probs_labels(
     model,
     val_loader
 )
-
-# ------------------------------------------------------------
-# STEP 2: FIND BEST THRESHOLD FROM VALIDATION SET
-# ------------------------------------------------------------
 
 fpr, tpr, thresholds = roc_curve(
     val_labels,
@@ -369,19 +315,11 @@ best_threshold = thresholds[best_idx]
 
 print("\nBest validation threshold:", round(best_threshold, 4))
 
-# ------------------------------------------------------------
-# STEP 3: APPLY SAME THRESHOLD TO TEST SET
-# ------------------------------------------------------------
-
 test_metrics = evaluate(
     model,
     test_loader,
     threshold=best_threshold
 )
-
-# ------------------------------------------------------------
-# STEP 4: PRINT TEST PROBABILITY DISTRIBUTION
-# ------------------------------------------------------------
 
 test_probs, test_labels = get_probs_labels(
     model,
@@ -409,13 +347,7 @@ print(
     )
 )
 
-# ------------------------------------------------------------
-# STEP 5: FINAL TEST RESULTS
-# ------------------------------------------------------------
-
-print("\n========== FINAL TEST RESULTS ==========")
+print("\n FINAL TEST RESULTS")
 
 for k, v in test_metrics.items():
     print(f"{k}: {round(v, 4)}")
-
-print("========================================")
