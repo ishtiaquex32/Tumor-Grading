@@ -204,10 +204,6 @@ def extract_patient_features_from_npy(pid):
 
     return np.concatenate(all_feats).astype(np.float32)
 
-# ============================================================
-# PREPROCESS AND SAVE AS .NPY
-# ============================================================
-
 PREPROCESSED_DIR = "./preprocessed_96_2"
 
 os.makedirs(PREPROCESSED_DIR, exist_ok=True)
