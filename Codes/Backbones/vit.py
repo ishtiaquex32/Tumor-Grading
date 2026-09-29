@@ -2,14 +2,11 @@ import os
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
-
 import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 from torch.amp import autocast, GradScaler
-
 from monai.networks.nets import UNETR
-
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import (
     roc_auc_score, accuracy_score, f1_score,
@@ -25,7 +22,7 @@ EPOCHS = 50
 LR = 1e-4
 RANDOM_STATE = 42
 
-patience1 = 3
+patience1 = 7
 patience2 = 12
 
 IMG_SIZE = (96, 96, 96)
